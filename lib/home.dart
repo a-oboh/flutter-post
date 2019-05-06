@@ -4,12 +4,40 @@ import 'package:path/path.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:wakanow_test/result.dart';
 
 String url = 'https://test.api.amadeus.com/v1/security/oauth2/token';
 var data;
 var accessToken;
+bool _loading = false;
+
+class Parameters {
+  String from;
+  String to;
+  String date;
+  String adult;
+  String travelClass;
+  String passengers;
+
+  Parameters(
+      {this.from,
+      this.to,
+      this.date,
+      this.adult,
+      this.travelClass,
+      this.passengers});
+}
+
+final parameters = Parameters(
+  from: 'NYC',
+  to: 'MAD',
+  date: "2019-08-01",
+  adult: '1',
+  travelClass: "ECONOMY",
+  passengers: "1 Adult",
+);
 
 //Future<Post> createPost(Post post) async {
 //  final response = await http.post('$url',
@@ -19,36 +47,10 @@ var accessToken;
 //  return Post.fromJson(json.decode(response.body)['access_token']);
 //}
 
-Future<Post> createPost(String url, {Map body}) async {
-  Map<String, String> requestHeaders = {
-    'Content-Type': 'application/x-www-form-urlencoded',
-    'Accept': 'application/json',
-  };
-  return http
-      .post(url, headers: requestHeaders, body: body)
-      .then((http.Response response) {
-    final int statusCode = response.statusCode;
-
-    if (statusCode < 200 || statusCode > 400 || json == null) {
-      throw new Exception("Error while fetching data");
-    }
-
-    data = jsonDecode(response.body);
-    print(data);
-    print(data['access_token']);
-
-    accessToken = data['access_token'];
-  });
-}
-
 Post newPost = new Post(
     grant_type: "client_credentials",
     client_id: '9EUyDJvzfPDs57kucVPODMtsYALPtmMN',
     client_secret: 'noPX4LEv2j2c5pPd');
-
-var apiCall = createPost(
-    'https://test.api.amadeus.com/v1/security/oauth2/token',
-    body: newPost.toMap());
 
 class Post {
   final String grant_type;
@@ -92,6 +94,59 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    _loading = false;
+    saveValues();
+  }
+
+  var _token;
+
+  saveValues() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _token = (prefs.getString('accessToken') ?? '');
+    });
+  }
+
+  getValues() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _token = accessToken;
+    });
+    prefs.setString('accessToken', _token);
+  }
+
+  Future<Post> createPost(String url, {Map body}) async {
+    setState(() {
+      _loading = false;
+    });
+
+    Map<String, String> requestHeaders = {
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Accept': 'application/json',
+    };
+    return http
+        .post(url, headers: requestHeaders, body: body)
+        .then((http.Response response) {
+      final int statusCode = response.statusCode;
+
+      if (statusCode < 200 || statusCode > 400 || json == null) {
+        throw new Exception("Error while fetching data");
+      }
+
+      if (statusCode == 200) {
+        data = jsonDecode(response.body);
+        print(data);
+        print(data['access_token']);
+
+        accessToken = data['access_token'].toString();
+
+        setState(() {
+          _loading = false;
+        });
+      } else {
+        throw Exception('Failed to load');
+      }
+    });
   }
 
   @override
@@ -115,194 +170,21 @@ class _HomeScreenState extends State<HomeScreen> {
         body: Container(
           child: Column(
             children: <Widget>[
-              Container(
-                height: 330.0,
-                width: 1000.0,
-                margin:
-                    const EdgeInsets.symmetric(vertical: 8.0, horizontal: 14.0),
-                child: Card(
-                  elevation: 2.0,
-                  color: Colors.white,
-                  shape: Border.all(color: Colors.black),
-                  child: Column(
-                    children: <Widget>[
-                      Container(
-                        decoration: BoxDecoration(
-                          border: new Border(
-                            bottom: BorderSide(color: Colors.black),
-                          ),
-                        ),
-                        child: Row(
-//                    crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Container(
-                              margin: const EdgeInsets.symmetric(
-                                  vertical: 8.0, horizontal: 20.0),
-                              child: Icon(Icons.my_location),
-                            ),
-                            Expanded(
-                              child: Column(
-                                children: <Widget>[
-                                  Container(
-                                    margin: const EdgeInsets.symmetric(
-                                        vertical: 12, horizontal: 16),
-                                    child: Text(
-                                      "New York - New York(JFK)",
-                                      style: TextStyle(
-                                          fontSize: 16.0,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.blue),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        decoration: BoxDecoration(
-                          border: new Border(
-                            bottom: BorderSide(color: Colors.black),
-                          ),
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Container(
-                              margin: const EdgeInsets.symmetric(
-                                  vertical: 8.0, horizontal: 20.0),
-                              child: Icon(Icons.location_on),
-                            ),
-                            Expanded(
-                              child: Column(
-                                children: <Widget>[
-                                  Container(
-                                    margin: const EdgeInsets.symmetric(
-                                        vertical: 12, horizontal: 16),
-                                    child: Text(
-                                      "Madrid - Barajas(MAD)",
-                                      style: TextStyle(
-                                          fontSize: 17.0,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.blue),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        decoration: BoxDecoration(
-                          border: new Border(
-                            bottom: BorderSide(color: Colors.black),
-                          ),
-                        ),
-                        child: Row(
-//                    crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Container(
-                              margin: const EdgeInsets.symmetric(
-                                  vertical: 8.0, horizontal: 20.0),
-                              child: Icon(Icons.date_range),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.all(30.0),
-                              child: Container(
-                                margin: const EdgeInsets.symmetric(
-                                    vertical: 12.0, horizontal: 10.0),
-                                child: Text(
-                                  "2019-08-01",
-                                  style: TextStyle(
-                                    color: Colors.blue,
-                                    fontSize: 23.0,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
-                            )
-                          ],
-                        ),
-                      ),
-                      Container(
-                        decoration: BoxDecoration(
-                          border: new Border(
-                            bottom: BorderSide(color: Colors.black),
-                          ),
-                        ),
-                        child: Row(
-//                    crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Container(
-                              margin: const EdgeInsets.symmetric(
-                                  vertical: 8.0, horizontal: 20.0),
-                              child: Icon(Icons.airline_seat_recline_extra),
-                            ),
-                            Expanded(
-                              child: Column(
-                                children: <Widget>[
-                                  Container(
-                                    margin: const EdgeInsets.symmetric(
-                                        vertical: 12, horizontal: 10.0),
-                                    child: Text(
-                                      "Economy",
-                                      style: TextStyle(
-                                          fontSize: 17.0,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.blue),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      Container(
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: <Widget>[
-                            Container(
-                              margin: const EdgeInsets.only(
-                                  top: 12.0, bottom: 12.0, left: 14.0),
-                              child: Icon(Icons.person),
-                            ),
-                            Expanded(
-                              child: Column(
-                                children: <Widget>[
-                                  Container(
-                                    margin: const EdgeInsets.symmetric(
-                                        vertical: 18),
-                                    child: Text(
-                                      "1 Adult",
-                                      style: TextStyle(
-                                          fontSize: 17.0,
-                                          fontWeight: FontWeight.bold,
-                                          color: Colors.blue),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
               InkWell(
                 onTap: () async {
+                  _loading = true;
                   var p = await createPost(
-                      'https://test.api.amadeus.com/v1/security/oauth2/token',
-                      body: newPost.toMap());
+                          'https://test.api.amadeus.com/v1/security/oauth2/token',
+                          body: newPost.toMap())
+                      .whenComplete(getValues)
+                      .whenComplete(
+                          () => Navigator.of(context).push(MaterialPageRoute(
+                              builder: (context) => ResultScreen(
+                                    parameters: parameters,
+                                  ))));
 
                   setState(() {
                     p;
-                    Navigator.of(context).push(MaterialPageRoute(
-                        builder: (context) => ResultScreen()));
                   });
                 },
                 child: Padding(
@@ -321,7 +203,190 @@ class _HomeScreenState extends State<HomeScreen> {
                     ),
                   ),
                 ),
-              )
+              ),
+              _loading
+                  ? Center(
+                      child: CircularProgressIndicator(),
+                    )
+                  : Container(
+                      height: 330.0,
+                      width: 1000.0,
+                      margin: const EdgeInsets.symmetric(
+                          vertical: 8.0, horizontal: 14.0),
+                      child: Card(
+                        elevation: 2.0,
+                        color: Colors.white,
+                        shape: Border.all(color: Colors.black),
+                        child: Column(
+                          children: <Widget>[
+                            Container(
+                              decoration: BoxDecoration(
+                                border: new Border(
+                                  bottom: BorderSide(color: Colors.black),
+                                ),
+                              ),
+                              child: Row(
+//                    crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  Container(
+                                    margin: const EdgeInsets.symmetric(
+                                        vertical: 8.0, horizontal: 20.0),
+                                    child: Icon(Icons.my_location),
+                                  ),
+                                  Expanded(
+                                    child: Column(
+                                      children: <Widget>[
+                                        Container(
+                                          margin: const EdgeInsets.symmetric(
+                                              vertical: 12, horizontal: 16),
+                                          child: Text(
+                                            "New York - New York(JFK)",
+                                            style: TextStyle(
+                                                fontSize: 16.0,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.blue),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              decoration: BoxDecoration(
+                                border: new Border(
+                                  bottom: BorderSide(color: Colors.black),
+                                ),
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  Container(
+                                    margin: const EdgeInsets.symmetric(
+                                        vertical: 8.0, horizontal: 20.0),
+                                    child: Icon(Icons.location_on),
+                                  ),
+                                  Expanded(
+                                    child: Column(
+                                      children: <Widget>[
+                                        Container(
+                                          margin: const EdgeInsets.symmetric(
+                                              vertical: 12, horizontal: 16),
+                                          child: Text(
+                                            "Madrid - Barajas(MAD)",
+                                            style: TextStyle(
+                                                fontSize: 17.0,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.blue),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              decoration: BoxDecoration(
+                                border: new Border(
+                                  bottom: BorderSide(color: Colors.black),
+                                ),
+                              ),
+                              child: Row(
+//                    crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  Container(
+                                    margin: const EdgeInsets.symmetric(
+                                        vertical: 8.0, horizontal: 20.0),
+                                    child: Icon(Icons.date_range),
+                                  ),
+                                  Padding(
+                                    padding: const EdgeInsets.all(30.0),
+                                    child: Container(
+                                      margin: const EdgeInsets.symmetric(
+                                          vertical: 12.0, horizontal: 10.0),
+                                      child: Text(
+                                        "2019-08-01",
+                                        style: TextStyle(
+                                          color: Colors.blue,
+                                          fontSize: 23.0,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                      ),
+                                    ),
+                                  )
+                                ],
+                              ),
+                            ),
+                            Container(
+                              decoration: BoxDecoration(
+                                border: new Border(
+                                  bottom: BorderSide(color: Colors.black),
+                                ),
+                              ),
+                              child: Row(
+//                    crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  Container(
+                                    margin: const EdgeInsets.symmetric(
+                                        vertical: 8.0, horizontal: 20.0),
+                                    child:
+                                        Icon(Icons.airline_seat_recline_extra),
+                                  ),
+                                  Expanded(
+                                    child: Column(
+                                      children: <Widget>[
+                                        Container(
+                                          margin: const EdgeInsets.symmetric(
+                                              vertical: 12, horizontal: 10.0),
+                                          child: Text(
+                                            "Economy",
+                                            style: TextStyle(
+                                                fontSize: 17.0,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.blue),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Container(
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: <Widget>[
+                                  Container(
+                                    margin: const EdgeInsets.only(
+                                        top: 12.0, bottom: 12.0, left: 14.0),
+                                    child: Icon(Icons.person),
+                                  ),
+                                  Expanded(
+                                    child: Column(
+                                      children: <Widget>[
+                                        Container(
+                                          margin: const EdgeInsets.symmetric(
+                                              vertical: 18),
+                                          child: Text(
+                                            "1 Adult",
+                                            style: TextStyle(
+                                                fontSize: 17.0,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.blue),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
             ],
           ),
         ),
